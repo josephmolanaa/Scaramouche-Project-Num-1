@@ -1,6 +1,3 @@
--- Load Rayfield UI
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,7 +5,23 @@ local TeleportService = game:GetService("TeleportService")
 local VirtualUser = game:GetService("VirtualUser")
 local VirtualInput = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- Mock Rayfield to intercept Notify calls seamlessly
+local Rayfield = {
+    Notify = function(self, data)
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = data.Title or "Notification",
+                Text = data.Content or "",
+                Duration = data.Duration or 5
+            })
+        end)
+    end
+}
 
 -- ==================== AUTO REJOIN SETUP ====================
 local PlaceId = game.PlaceId
@@ -22,14 +35,40 @@ getgenv().AutoExpedition = getgenv().AutoExpedition or {
     autoRejoinEnabled = true
 }
 
--- UI Window
-local Window = Rayfield:CreateWindow({
-    Name = "Auto Expedition By Scaramouche",
-    LoadingTitle = "Auto Expedition 16 Minute",
-    LoadingSubtitle = "by Scaramouche",
-    Theme = "Dark",
-    KeySystem = false
-})
+-- ==================== TOTAL EXPEDITION TRACKING ====================
+local function GetInGameExpeditions()
+    local myUserIdStr = tostring(LocalPlayer.UserId)
+    
+    -- Mencari folder RankBillboards% di Workspace
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if string.find(obj.Name, "RankBillboards") then
+            -- Mencari BillboardGui yang namanya sama dengan UserId kita
+            local myBillboard = obj:FindFirstChild(myUserIdStr)
+            if myBillboard then
+                local frame = myBillboard:FindFirstChild("Frame")
+                if frame then
+                    -- Teks berisi statistik ada di TextLabel bernama "Premium"
+                    local premiumLbl = frame:FindFirstChild("Premium")
+                    if premiumLbl and premiumLbl:IsA("TextLabel") then
+                        local num = string.match(premiumLbl.Text, "Expeditions?:%s*(%d+)")
+                        if num then
+                            return num
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Fallback ke leaderstats standar jika leaderboard belum termuat
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if leaderstats then
+        local exp = leaderstats:FindFirstChild("Expeditions") or leaderstats:FindFirstChild("Expedition")
+        if exp then return exp.Value end
+    end
+    
+    return "Mencari Data..."
+end
 
 -- Waypoints
 local Waypoints = {
@@ -116,7 +155,7 @@ local function SendWebhookSync(title, description, color)
 end
 
 -- ==============================
--- AUTO REJOIN (tidak diubah)
+-- AUTO REJOIN
 -- ==============================
 local function AttemptRejoin()
     if not autoRejoinEnabled or disconnectSent then return end
@@ -160,7 +199,7 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 -- ==============================
--- TELEPORT, AUTO CLICK, AUTO JUMP, dll (sama seperti sebelumnya)
+-- TELEPORT, AUTO CLICK, AUTO JUMP, dll
 -- ==============================
 local function SafeTeleport(cf)
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -238,7 +277,7 @@ local function CountdownWait(totalSeconds, stepName)
 end
 
 -- ==============================
--- EXPEDITION FLOW (BAGIAN YANG DIUBAH)
+-- EXPEDITION FLOW
 -- ==============================
 local expeditionThread = nil
 
@@ -267,7 +306,7 @@ local function RunExpedition()
             StartAutoJump()
             PressTwo()
             StartAutoClick()
-            CountdownWait(978, "Step 1 — Water Refill")
+            CountdownWait(900, "Step 1 — Water Refill")
             StopAutoJump()
             StopAutoClick()
             if not isRunning then break end
@@ -291,23 +330,20 @@ local function RunExpedition()
             LocalPlayer.CharacterAdded:Wait()
             if not isRunning then break end
 
-            -- ==================== NOTIFIKASI WEBHOOK SETIAP 10 LOOP ====================
-            if loopCount % 10 == 0 then
+            -- ==================== NOTIFIKASI WEBHOOK ====================
+            if loopCount % 5 == 0 then
+                local currentTotal = GetInGameExpeditions()
                 SendWebhook(
                     "🏆 Milestone Expedition",
-                    "Player **" .. LocalPlayer.Name .. "** telah menyelesaikan **" .. loopCount .. " loop**!\n\n" ..
+                    "Player **" .. LocalPlayer.Name .. "** telah mencapai **" .. tostring(currentTotal) .. " Total Ekspedisi**!\n\n" ..
+                    "Loop saat ini: **" .. loopCount .. "**\n" ..
                     "Target loop: **" .. (targetLoops == 0 and "Infinite" or targetLoops) .. "**\n" ..
                     "Auto Rejoin: **" .. (autoRejoinEnabled and "AKTIF" or "NONAKTIF") .. "**",
                     3066993  -- Warna hijau
                 )
-                Rayfield:Notify({
-                    Title = "🏆 Milestone!",
-                    Content = "Webhook dikirim — " .. loopCount .. " loop tercapai!",
-                    Duration = 6
-                })
+                Rayfield:Notify({ Title = "🏆 Milestone!", Content = "Webhook dikirim — " .. loopCount .. " loop tercapai!", Duration = 6 })
             end
 
-            -- Cek target loop
             if targetLoops > 0 and loopCount >= targetLoops then
                 Rayfield:Notify({ Title = "✅ Expedition Selesai", Content = "Selesai " .. loopCount .. " loop.", Duration = 10 })
                 UpdateStatus("✅ Expedition Selesai", "Selesai " .. loopCount .. " loop!")
@@ -321,7 +357,6 @@ local function RunExpedition()
             UpdateStatus("Loop #" .. loopCount, "🔁 Mengulang dari awal...")
         end
 
-        -- Cleanup
         StopAutoClick()
         StopAutoJump()
         isRunning = false
@@ -344,77 +379,371 @@ local function StopExpedition()
     UpdateStatus("Status", "⏹ Expedition dihentikan oleh user.")
 end
 
--- ==================== UI (sama seperti sebelumnya) ====================
-local expeditionTab = Window:CreateTab("Auto Expedition")
-expeditionTab:CreateSection("Status")
-countdownLabel = expeditionTab:CreateParagraph({ Title = "Status", Content = "⏹ Expedition belum dijalankan\nTekan toggle untuk mulai" })
+-- ==================== MODERN UI BUILDER (CHLOE X STYLE) ====================
+local Theme = {
+    Background = Color3.fromRGB(15, 18, 26),
+    SidebarBg = Color3.fromRGB(12, 14, 20),
+    Accent = Color3.fromRGB(0, 180, 220),
+    ItemBg = Color3.fromRGB(25, 29, 38),
+    ItemHover = Color3.fromRGB(30, 35, 45),
+    TextLight = Color3.fromRGB(240, 240, 240),
+    TextDim = Color3.fromRGB(130, 135, 145),
+    ToggleOn = Color3.fromRGB(0, 180, 220),
+    ToggleOff = Color3.fromRGB(40, 45, 55)
+}
 
-expeditionTab:CreateSection("Controls")
-expeditionTab:CreateToggle({
-    Name = "Start Expedition",
-    CurrentValue = isRunning,
-    Callback = function(value)
-        if value then RunExpedition() else StopExpedition() end
+local existingUI = CoreGui:FindFirstChild("AutoExpModernUI")
+if existingUI then existingUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoExpModernUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+-- Main Container
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 500, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -170)
+MainFrame.BackgroundColor3 = Theme.Background
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Topbar
+local Topbar = Instance.new("Frame")
+Topbar.Size = UDim2.new(1, 0, 0, 30)
+Topbar.BackgroundTransparency = 1
+Topbar.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Auto Expedition | Version 1.0.1"
+TitleLabel.TextColor3 = Theme.Accent
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 13
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Topbar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X" -- Berubah jadi huruf K
+CloseBtn.TextColor3 = Theme.TextDim
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = Topbar
+CloseBtn.MouseButton1Click:Connect(function() 
+    MainFrame.Visible = false -- Hanya menyembunyikan UI (Hide), script tetap jalan
+end)
+CloseBtn.MouseEnter:Connect(function() CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80) end)
+CloseBtn.MouseLeave:Connect(function() CloseBtn.TextColor3 = Theme.TextDim end)
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -60, 0, 0)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Theme.TextDim
+MinBtn.Font = Enum.Font.Gotham
+MinBtn.TextSize = 14
+MinBtn.Parent = Topbar
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    MainFrame.Size = minimized and UDim2.new(0, 500, 0, 30) or UDim2.new(0, 500, 0, 340)
+    for _, child in ipairs(MainFrame:GetChildren()) do
+        if child ~= Topbar and child:IsA("GuiObject") then child.Visible = not minimized end
     end
-})
+end)
 
-expeditionTab:CreateToggle({
-    Name = "🔄 Enable Auto Rejoin",
-    CurrentValue = autoRejoinEnabled,
-    Callback = function(value)
-        autoRejoinEnabled = value
-        getgenv().AutoExpedition.autoRejoinEnabled = value
-        Rayfield:Notify({ Title = "Auto Rejoin", Content = value and "✅ Dinyalakan" or "❌ Dimatikan", Duration = 4 })
-    end
-})
+-- Sidebar
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 140, 1, -30)
+Sidebar.Position = UDim2.new(0, 0, 0, 30)
+Sidebar.BackgroundColor3 = Theme.SidebarBg
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
 
-expeditionTab:CreateInput({
-    Name = "Loop Count (0 = infinite)",
-    PlaceholderText = tostring(targetLoops),
-    RemoveTextAfterFocusLost = false,
-    Callback = function(value)
-        local num = tonumber(value)
-        if num and num >= 0 then
-            targetLoops = num
-            getgenv().AutoExpedition.targetLoops = num
-            Rayfield:Notify({ Title = "Loop Updated", Content = "Target loop: " .. (num == 0 and "Infinite" or tostring(num)), Duration = 4 })
-        else
-            Rayfield:Notify({ Title = "Warning", Content = "Masukkan angka >= 0", Duration = 5 })
+local SidebarList = Instance.new("UIListLayout")
+SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarList.Padding = UDim.new(0, 2)
+SidebarList.Parent = Sidebar
+local SidebarPadding = Instance.new("UIPadding", Sidebar)
+SidebarPadding.PaddingTop = UDim.new(0, 10)
+SidebarPadding.PaddingLeft = UDim.new(0, 5)
+SidebarPadding.PaddingRight = UDim.new(0, 5)
+
+-- Content Area
+local ContentArea = Instance.new("Frame")
+ContentArea.Size = UDim2.new(1, -140, 1, -30)
+ContentArea.Position = UDim2.new(0, 140, 0, 30)
+ContentArea.BackgroundTransparency = 1
+ContentArea.Parent = MainFrame
+
+local currentTabBtn = nil
+local currentContainer = nil
+
+-- UI Components Builder
+local function CreateTab(name, icon)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 32)
+    Btn.BackgroundColor3 = Theme.ItemBg
+    Btn.BackgroundTransparency = 1
+    Btn.Text = "  " .. icon .. "  " .. name
+    Btn.TextColor3 = Theme.TextDim
+    Btn.Font = Enum.Font.GothamSemibold
+    Btn.TextSize = 13
+    Btn.TextXAlignment = Enum.TextXAlignment.Left
+    Btn.Parent = Sidebar
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+
+    local Highlight = Instance.new("Frame")
+    Highlight.Size = UDim2.new(0, 3, 0, 18)
+    Highlight.Position = UDim2.new(0, 0, 0.5, -9)
+    Highlight.BackgroundColor3 = Theme.Accent
+    Highlight.BorderSizePixel = 0
+    Highlight.Visible = false
+    Highlight.Parent = Btn
+    Instance.new("UICorner", Highlight).CornerRadius = UDim.new(1, 0)
+
+    local Container = Instance.new("ScrollingFrame")
+    Container.Size = UDim2.new(1, -20, 1, -20)
+    Container.Position = UDim2.new(0, 10, 0, 10)
+    Container.BackgroundTransparency = 1
+    Container.ScrollBarThickness = 2
+    Container.ScrollBarImageColor3 = Theme.Accent
+    Container.Visible = false
+    Container.Parent = ContentArea
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Padding = UDim.new(0, 8)
+    Layout.Parent = Container
+
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(1, 0, 0, 40)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = name
+    TitleLabel.TextColor3 = Theme.TextLight
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextSize = 22
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = Container
+
+    Btn.MouseButton1Click:Connect(function()
+        if currentContainer then currentContainer.Visible = false end
+        if currentTabBtn then 
+            currentTabBtn.BackgroundTransparency = 1
+            currentTabBtn.TextColor3 = Theme.TextDim
+            currentTabBtn:FindFirstChild("Frame").Visible = false
         end
-    end
-})
+        
+        Container.Visible = true
+        Btn.BackgroundTransparency = 0
+        Btn.TextColor3 = Theme.TextLight
+        Highlight.Visible = true
+        
+        currentContainer = Container
+        currentTabBtn = Btn
+    end)
 
--- Webhook Tab (sama)
-local webhookTab = Window:CreateTab("🔔 Webhook")
-webhookTab:CreateSection("Konfigurasi")
-webhookTab:CreateInput({
-    Name = "Discord Webhook URL",
-    PlaceholderText = "https://discord.com/api/webhooks/...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(value)
-        webhookURL = value
-        getgenv().AutoExpedition.webhookURL = value
-        if value ~= "" then
-            Rayfield:Notify({ Title = "Webhook Disimpan", Content = "URL tersimpan!", Duration = 4 })
-        end
+    if not currentContainer then
+        Container.Visible = true
+        Btn.BackgroundTransparency = 0
+        Btn.TextColor3 = Theme.TextLight
+        Highlight.Visible = true
+        currentContainer = Container
+        currentTabBtn = Btn
     end
-})
 
-webhookTab:CreateButton({
-    Name = "🧪 Test Webhook",
-    Callback = function()
-        if webhookURL == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Isi Webhook URL dulu!", Duration = 4 })
-            return
-        end
-        SendWebhook("🧪 Test Webhook Berhasil", "✅ Webhook terhubung!\nPlayer: **" .. LocalPlayer.Name .. "**", 65280)
-        Rayfield:Notify({ Title = "✅ Test Dikirim", Content = "Cek channel Discord kamu!", Duration = 5 })
+    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Container.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
+    end)
+
+    return Container
+end
+
+local function AddParagraph(parent, title, content)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 65)
+    Frame.BackgroundColor3 = Theme.ItemBg
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
+    local Txt = Instance.new("TextLabel")
+    Txt.Size = UDim2.new(1, -20, 1, -10)
+    Txt.Position = UDim2.new(0, 10, 0, 5)
+    Txt.BackgroundTransparency = 1
+    Txt.TextColor3 = Theme.TextDim
+    Txt.Text = title .. "\n" .. content
+    Txt.TextWrapped = true
+    Txt.TextXAlignment = Enum.TextXAlignment.Left
+    Txt.TextYAlignment = Enum.TextYAlignment.Top
+    Txt.Font = Enum.Font.Gotham
+    Txt.TextSize = 12
+    Txt.Parent = Frame
+
+    return { Set = function(self, data) Txt.Text = (data.Title or title) .. "\n" .. (data.Content or content) end }
+end
+
+local function AddToggle(parent, text, subtext, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 45)
+    Frame.BackgroundColor3 = Theme.ItemBg
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Size = UDim2.new(1, -70, 0, 20)
+    Lbl.Position = UDim2.new(0, 12, 0, 5)
+    Lbl.BackgroundTransparency = 1
+    Lbl.TextColor3 = Theme.TextLight
+    Lbl.Text = text
+    Lbl.Font = Enum.Font.GothamSemibold
+    Lbl.TextSize = 13
+    Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Lbl.Parent = Frame
+
+    local SubLbl = Instance.new("TextLabel")
+    SubLbl.Size = UDim2.new(1, -70, 0, 15)
+    SubLbl.Position = UDim2.new(0, 12, 0, 23)
+    SubLbl.BackgroundTransparency = 1
+    SubLbl.TextColor3 = Theme.TextDim
+    SubLbl.Text = subtext or ""
+    SubLbl.Font = Enum.Font.Gotham
+    SubLbl.TextSize = 11
+    SubLbl.TextXAlignment = Enum.TextXAlignment.Left
+    SubLbl.Parent = Frame
+
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 36, 0, 20)
+    Btn.Position = UDim2.new(1, -48, 0.5, -10)
+    Btn.BackgroundColor3 = default and Theme.ToggleOn or Theme.ToggleOff
+    Btn.Text = ""
+    Btn.Parent = Frame
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
+
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 14, 0, 14)
+    Indicator.Position = default and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Indicator.Parent = Btn
+    Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+
+    local state = default
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff}):Play()
+        TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)}):Play()
+        callback(state)
+    end)
+end
+
+local function AddInput(parent, text, defaultVal, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 45)
+    Frame.BackgroundColor3 = Theme.ItemBg
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Size = UDim2.new(0, 120, 1, 0)
+    Lbl.Position = UDim2.new(0, 12, 0, 0)
+    Lbl.BackgroundTransparency = 1
+    Lbl.TextColor3 = Theme.TextLight
+    Lbl.Text = text
+    Lbl.Font = Enum.Font.GothamSemibold
+    Lbl.TextSize = 13
+    Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Lbl.Parent = Frame
+
+    local Box = Instance.new("TextBox")
+    Box.Size = UDim2.new(1, -145, 0, 26)
+    Box.Position = UDim2.new(0, 135, 0.5, -13)
+    Box.BackgroundColor3 = Theme.Background
+    Box.TextColor3 = Theme.TextLight
+    Box.PlaceholderText = "Ketik disini..."
+    Box.Text = defaultVal or ""
+    Box.Font = Enum.Font.Gotham
+    Box.TextSize = 12
+    Box.TextXAlignment = Enum.TextXAlignment.Left
+    Box.ClearTextOnFocus = false
+    Box.ClipsDescendants = true
+    Box.Parent = Frame
+    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
+    local Padding = Instance.new("UIPadding", Box)
+    Padding.PaddingLeft = UDim.new(0, 8)
+    Padding.PaddingRight = UDim.new(0, 8)
+
+    Box.FocusLost:Connect(function() callback(Box.Text) end)
+    return Box
+end
+
+local function AddButton(parent, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 35)
+    Btn.BackgroundColor3 = Theme.ItemBg
+    Btn.TextColor3 = Theme.TextLight
+    Btn.Text = text
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 13
+    Btn.Parent = parent
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    
+    Btn.MouseEnter:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.ItemHover}):Play() end)
+    Btn.MouseLeave:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.ItemBg}):Play() end)
+    Btn.MouseButton1Click:Connect(callback)
+    return Btn
+end
+
+-- ==================== POPULATING TABS ====================
+local mainTab = CreateTab("Expedition", "▶️")
+countdownLabel = AddParagraph(mainTab, "Status Tracker", "⏹ Expedition belum dijalankan\nTekan toggle untuk mulai")
+AddToggle(mainTab, "Mulai Expedition", "Otomatis farming & teleport", isRunning, function(val)
+    if val then RunExpedition() else StopExpedition() end
+end)
+AddToggle(mainTab, "Auto Rejoin", "Otomatis masuk saat DC", autoRejoinEnabled, function(val)
+    autoRejoinEnabled = val
+    getgenv().AutoExpedition.autoRejoinEnabled = val
+    Rayfield:Notify({ Title = "Auto Rejoin", Content = val and "✅ Dinyalakan" or "❌ Dimatikan", Duration = 4 })
+end)
+AddInput(mainTab, "Limit Loop", tostring(targetLoops), function(val)
+    local num = tonumber(val)
+    if num and num >= 0 then
+        targetLoops = num
+        getgenv().AutoExpedition.targetLoops = num
+        Rayfield:Notify({ Title = "Loop Updated", Content = "Target loop: " .. (num == 0 and "Infinite" or tostring(num)), Duration = 4 })
     end
-})
+end)
 
--- Camps Tab (sama seperti asli)
-local campsTab = Window:CreateTab("🏕️ Camps")
-campsTab:CreateSection("Teleport ke Camp")
+local webTab = CreateTab("Webhook", "🔔")
+AddParagraph(webTab, "Notifikasi Discord", "Masukkan URL webhook untuk menerima report per 5 loop & disconnect.")
+local WebhookInputBox = AddInput(webTab, "Webhook URL", webhookURL, function(val)
+    if val and val ~= "" then
+        webhookURL = val
+        getgenv().AutoExpedition.webhookURL = val
+        Rayfield:Notify({ Title = "Disimpan", Content = "Webhook berhasil dipasang!", Duration = 4 })
+    end
+end)
+AddButton(webTab, "🧪 Test Bot Webhook", function()
+    if webhookURL == "" then return Rayfield:Notify({ Title = "Error", Content = "Isi Webhook URL dulu!", Duration = 4 }) end
+    SendWebhook("🧪 Test Webhook Berhasil", "✅ Webhook terhubung!\nPlayer: **" .. LocalPlayer.Name .. "**", 65280)
+    Rayfield:Notify({ Title = "Test Dikirim", Content = "Cek channel Discord kamu!", Duration = 5 })
+end)
+AddButton(webTab, "🗑️ Hapus Webhook", function()
+    webhookURL = ""
+    getgenv().AutoExpedition.webhookURL = ""
+    WebhookInputBox.Text = ""
+    Rayfield:Notify({ Title = "Dihapus", Content = "Webhook URL telah dihapus.", Duration = 4 })
+end)
+
+local campTab = CreateTab("Teleport", "🏕️")
 local Camps = {
     { name = "🏕️ Camp 1", cframe = CFrame.new(-(4236.6 - (114 + 404)), 227.4, 723.6 - (106 + 382)) },
     { name = "🏕️ Camp 2", cframe = CFrame.new(1789.7, 107.8, -137) },
@@ -424,26 +753,41 @@ local Camps = {
     { name = "🚩 South Pole", cframe = CFrame.new(11001.9, 551.5, 103) },
     { name = "💧 Water Refill", cframe = CFrame.new(-6043.26, -153.62, -60.18) },
 }
-
 for _, camp in ipairs(Camps) do
-    campsTab:CreateButton({
-        Name = camp.name,
-        Callback = function()
-            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.CFrame = camp.cframe
-                Rayfield:Notify({ Title = "Teleport Berhasil", Content = "Berhasil teleport ke " .. camp.name, Duration = 3 })
-            end
-        end
-    })
+    AddButton(campTab, camp.name, function()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = camp.cframe end
+    end)
 end
 
--- ==================== AUTO RESUME ====================
+local statsTab = CreateTab("Statistik", "📊")
+local totalLbl = AddParagraph(statsTab, "Data Server Asli", "Memuat data dari server...")
+task.spawn(function()
+    while task.wait(2) do
+        local currentStats = GetInGameExpeditions()
+        totalLbl:Set({ Content = "Total sukses: **" .. tostring(currentStats) .. "** Expeditions." })
+    end
+end)
+AddButton(statsTab, "🔄 Refresh Data", function()
+    local currentStats = GetInGameExpeditions()
+    totalLbl:Set({ Content = "Total sukses: **" .. tostring(currentStats) .. "** Expeditions." })
+end)
+
+-- Toggle UI Hotkey (Tombol K)
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- Kalau pencet K di keyboard, UI bakal sembunyi/muncul
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- Auto Resume Support
 if getgenv().AutoExpedition.isRunning then
-    Rayfield:Notify({ Title = "🔄 Auto Rejoined!", Content = "Melanjutkan expedition dari Loop #" .. loopCount, Duration = 8 })
+    Rayfield:Notify({ Title = "🔄 Auto Rejoined!", Content = "Melanjutkan expedition...", Duration = 8 })
     task.wait(2)
     RunExpedition()
 end
 
-Rayfield:Notify({ Title = "Auto Expedition", Content = "Script siap! Auto Rejoin " .. (autoRejoinEnabled and "✅ ON" or "❌ OFF"), Duration = 6 })
+Rayfield:Notify({ Title = "Loaded", Content = "Modern UI by Scaramouche siap digunakan!", Duration = 6 })
