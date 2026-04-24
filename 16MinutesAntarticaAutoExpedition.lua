@@ -300,7 +300,7 @@ local function RunExpedition()
             UpdateStatus("Expedition Running", "Loop #" .. loopCount .. " — Starting process...")
 
             -- STEP 1: Water Refill
-            Rayfield:Notify({ Title = "Step 1 — Water Refill", Content = "13.45 menit farming...", Duration = 6 })
+            Rayfield:Notify({ Title = "Step 1 — Water Refill", Content = "14 Minutes Farming...", Duration = 6 })
             UpdateStatus("Step 1 — Water Refill", "🚀 Teleport to Water Refill...")
             SafeTeleport(Waypoints.WaterRefill)
             StartAutoJump()
