@@ -67,7 +67,7 @@ local function GetInGameExpeditions()
         if exp then return exp.Value end
     end
     
-    return "Mencari Data..."
+    return "Getting Data..."
 end
 
 -- Waypoints
@@ -160,7 +160,7 @@ end
 local function AttemptRejoin()
     if not autoRejoinEnabled or disconnectSent then return end
     disconnectSent = true
-    SendWebhookSync("🔄 Disconnect — Auto Rejoin", "Player **" .. LocalPlayer.Name .. "** disconnect / keluar dari server.\nReconnecting ke server yang sama...\nLoop terakhir: **#" .. loopCount .. "**", 16776960)
+    SendWebhookSync("🔄 Disconnect — Auto Rejoin", "Player **" .. LocalPlayer.Name .. "** disconnect / out of server.\nReconnecting to the same server...\nLast Loop: **#" .. loopCount .. "**", 16776960)
     task.wait(1.5)
     pcall(function() TeleportService:TeleportToPlaceInstance(PlaceId, JobId) end)
 end
@@ -181,7 +181,7 @@ task.spawn(function()
         if tick() - lastHeartbeat > 8 then
             if not disconnectSent and webhookURL ~= "" then
                 disconnectSent = true
-                SendWebhookSync("❌ Crash / Koneksi Putus", "Player **" .. LocalPlayer.Name .. "** kehilangan koneksi.\nLoop terakhir: **#" .. tostring(loopCount) .. "**", 16711680)
+                SendWebhookSync("❌ Crash / Disconnect", "Player **" .. LocalPlayer.Name .. "** Out of connection.\nLast Loop: **#" .. tostring(loopCount) .. "**", 16711680)
             end
             if autoRejoinEnabled then
                 pcall(function() TeleportService:TeleportToPlaceInstance(PlaceId, JobId) end)
@@ -218,7 +218,7 @@ local function SafeTeleportSouthPole()
     local ySteps = {5, 10, 15}
     for i, extraY in ipairs(ySteps) do
         hrp.CFrame = CFrame.new(sp.X, baseY + extraY, sp.Z)
-        UpdateStatus("Step 2 — South Pole", string.format("🚀 Teleport #%d ke South Pole (Y+%d)...", i, extraY))
+        UpdateStatus("Step 2 — South Pole", string.format("🚀 Teleport #%d to South Pole (Y+%d)...", i, extraY))
         task.wait(0.5)
     end
 end
@@ -268,9 +268,9 @@ local function CountdownWait(totalSeconds, stepName)
         local remaining = math.ceil(endTime - tick())
         local mins = math.floor(remaining / 60)
         local secs = remaining % 60
-        UpdateStatus(stepName, string.format("⏳ %02d:%02d tersisa\nLoop #%d", mins, secs, loopCount))
+        UpdateStatus(stepName, string.format("⏳ %02d:%02d Left\nLoop #%d", mins, secs, loopCount))
         if secs == 0 and mins > 0 then
-            Rayfield:Notify({ Title = stepName, Content = string.format("⏳ %d menit tersisa (Loop #%d)", mins, loopCount), Duration = 8 })
+            Rayfield:Notify({ Title = stepName, Content = string.format("⏳ %d minutes Left (Loop #%d)", mins, loopCount), Duration = 8 })
         end
         task.wait(1)
     end
@@ -283,7 +283,7 @@ local expeditionThread = nil
 
 local function RunExpedition()
     if isRunning then
-        Rayfield:Notify({ Title = "⚠️ Sudah Berjalan", Content = "Expedition sudah aktif!", Duration = 4 })
+        Rayfield:Notify({ Title = "⚠️ Running", Content = "Expedition is already active!", Duration = 4 })
         return
     end
 
@@ -296,34 +296,34 @@ local function RunExpedition()
             loopCount += 1
             getgenv().AutoExpedition.loopCount = loopCount
 
-            Rayfield:Notify({ Title = "Expedition Dimulai", Content = "Loop #" .. loopCount, Duration = 5 })
-            UpdateStatus("Expedition Running", "Loop #" .. loopCount .. " — Mulai proses...")
+            Rayfield:Notify({ Title = "Expedition Started", Content = "Loop #" .. loopCount, Duration = 5 })
+            UpdateStatus("Expedition Running", "Loop #" .. loopCount .. " — Starting process...")
 
             -- STEP 1: Water Refill
-            Rayfield:Notify({ Title = "Step 1 — Water Refill", Content = "16 menit farming...", Duration = 6 })
-            UpdateStatus("Step 1 — Water Refill", "🚀 Teleport ke Water Refill...")
+            Rayfield:Notify({ Title = "Step 1 — Water Refill", Content = "13.45 menit farming...", Duration = 6 })
+            UpdateStatus("Step 1 — Water Refill", "🚀 Teleport to Water Refill...")
             SafeTeleport(Waypoints.WaterRefill)
             StartAutoJump()
             PressTwo()
             StartAutoClick()
-            CountdownWait(900, "Step 1 — Water Refill")
+            CountdownWait(840, "Step 1 — Water Refill")
             StopAutoJump()
             StopAutoClick()
             if not isRunning then break end
 
             -- STEP 2: South Pole
-            Rayfield:Notify({ Title = "Step 2 — South Pole", Content = "3x Teleport ke South Pole...", Duration = 5 })
-            UpdateStatus("Step 2 — South Pole", "🚀 Memulai 3x teleport...")
+            Rayfield:Notify({ Title = "Step 2 — South Pole", Content = "3x Teleport to South Pole...", Duration = 5 })
+            UpdateStatus("Step 2 — South Pole", "🚀 Starting 3x teleport...")
             SafeTeleportSouthPole()
             if not isRunning then break end
 
             -- STEP 3: Wait 5s
-            Rayfield:Notify({ Title = "Step 3 — Menunggu", Content = "Tunggu 5 detik...", Duration = 5 })
-            CountdownWait(5, "Step 3 — Menunggu")
+            Rayfield:Notify({ Title = "Step 3 — Waiting", Content = "Waiting for 5 seconds...", Duration = 5 })
+            CountdownWait(5, "Step 3 — Waiting")
             if not isRunning then break end
 
             -- STEP 4: Respawn
-            Rayfield:Notify({ Title = "Step 4 — Respawn", Content = "Respawn sekarang!", Duration = 5 })
+            Rayfield:Notify({ Title = "Step 4 — Respawn", Content = "Respawning now!", Duration = 5 })
             UpdateStatus("Step 4 — Respawn", "💀 Respawn...")
             local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if hum then hum.Health = 0 end
@@ -335,26 +335,26 @@ local function RunExpedition()
                 local currentTotal = GetInGameExpeditions()
                 SendWebhook(
                     "🏆 Milestone Expedition",
-                    "Player **" .. LocalPlayer.Name .. "** telah mencapai **" .. tostring(currentTotal) .. " Total Ekspedisi**!\n\n" ..
-                    "Loop saat ini: **" .. loopCount .. "**\n" ..
+                    "Player **" .. LocalPlayer.Name .. "** has reached **" .. tostring(currentTotal) .. " Total Expedition**!\n\n" ..
+                    "Loop Right Now: **" .. loopCount .. "**\n" ..
                     "Target loop: **" .. (targetLoops == 0 and "Infinite" or targetLoops) .. "**\n" ..
-                    "Auto Rejoin: **" .. (autoRejoinEnabled and "AKTIF" or "NONAKTIF") .. "**",
+                    "Auto Rejoin: **" .. (autoRejoinEnabled and "ACTIVE" or "INACTIVE") .. "**",
                     3066993  -- Warna hijau
                 )
-                Rayfield:Notify({ Title = "🏆 Milestone!", Content = "Webhook dikirim — " .. loopCount .. " loop tercapai!", Duration = 6 })
+                Rayfield:Notify({ Title = "🏆 Milestone!", Content = "Webhook sent — " .. loopCount .. " loop reached!", Duration = 6 })
             end
 
             if targetLoops > 0 and loopCount >= targetLoops then
-                Rayfield:Notify({ Title = "✅ Expedition Selesai", Content = "Selesai " .. loopCount .. " loop.", Duration = 10 })
-                UpdateStatus("✅ Expedition Selesai", "Selesai " .. loopCount .. " loop!")
+                Rayfield:Notify({ Title = "✅ Expedition Finished", Content = "Finished " .. loopCount .. " loop.", Duration = 10 })
+                UpdateStatus("✅ Expedition Finished", "Finished " .. loopCount .. " loop!")
                 SendWebhook("✅ Expedition Selesai", "Player **" .. LocalPlayer.Name .. "** menyelesaikan **" .. loopCount .. " loop**!", 3066993)
                 isRunning = false
                 getgenv().AutoExpedition.isRunning = false
                 break
             end
 
-            Rayfield:Notify({ Title = "🔁 Loop", Content = "Mengulang dari Step 1...", Duration = 3 })
-            UpdateStatus("Loop #" .. loopCount, "🔁 Mengulang dari awal...")
+            Rayfield:Notify({ Title = "🔁 Loop", Content = "🔁 Starting from Step 1...", Duration = 3 })
+            UpdateStatus("Loop #" .. loopCount, "🔁 Starting from Step 1...")
         end
 
         StopAutoClick()
@@ -362,7 +362,7 @@ local function RunExpedition()
         isRunning = false
         getgenv().AutoExpedition.isRunning = false
         expeditionThread = nil
-        UpdateStatus("Status", "⏹ Expedition dihentikan.")
+        UpdateStatus("Status", "⏹ Expedition stopped.")
     end)
 end
 
@@ -375,11 +375,11 @@ local function StopExpedition()
         task.cancel(expeditionThread)
         expeditionThread = nil
     end
-    Rayfield:Notify({ Title = "Expedition Stopped", Content = "Dihentikan oleh user.", Duration = 5 })
-    UpdateStatus("Status", "⏹ Expedition dihentikan oleh user.")
+    Rayfield:Notify({ Title = "Expedition Stopped", Content = "Stopped by user.", Duration = 5 })
+    UpdateStatus("Status", "⏹ Expedition stopped by user.")
 end
 
--- ==================== MODERN UI BUILDER (CHLOE X STYLE) ====================
+-- ==================== MODERN UI BUILDER ====================
 local Theme = {
     Background = Color3.fromRGB(15, 18, 26),
     SidebarBg = Color3.fromRGB(12, 14, 20),
@@ -462,11 +462,37 @@ MinBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Sidebar
+-- Sidebar Background
+local SidebarBg = Instance.new("Frame")
+SidebarBg.Size = UDim2.new(0, 140, 1, -30)
+SidebarBg.Position = UDim2.new(0, 0, 0, 30)
+SidebarBg.BackgroundColor3 = Theme.SidebarBg
+SidebarBg.BorderSizePixel = 0
+SidebarBg.Parent = MainFrame
+
+local SidebarCorner = Instance.new("UICorner")
+SidebarCorner.CornerRadius = UDim.new(0, 8)
+SidebarCorner.Parent = SidebarBg
+
+local SidebarTopCover = Instance.new("Frame")
+SidebarTopCover.Size = UDim2.new(0, 140, 0, 10)
+SidebarTopCover.Position = UDim2.new(0, 0, 0, 30)
+SidebarTopCover.BackgroundColor3 = Theme.SidebarBg
+SidebarTopCover.BorderSizePixel = 0
+SidebarTopCover.Parent = MainFrame
+
+local SidebarRightCover = Instance.new("Frame")
+SidebarRightCover.Size = UDim2.new(0, 10, 1, -30)
+SidebarRightCover.Position = UDim2.new(0, 130, 0, 30)
+SidebarRightCover.BackgroundColor3 = Theme.SidebarBg
+SidebarRightCover.BorderSizePixel = 0
+SidebarRightCover.Parent = MainFrame
+
+-- Sidebar Content
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 140, 1, -30)
 Sidebar.Position = UDim2.new(0, 0, 0, 30)
-Sidebar.BackgroundColor3 = Theme.SidebarBg
+Sidebar.BackgroundTransparency = 1
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
@@ -668,7 +694,7 @@ local function AddInput(parent, text, defaultVal, callback)
     Box.Position = UDim2.new(0, 135, 0.5, -13)
     Box.BackgroundColor3 = Theme.Background
     Box.TextColor3 = Theme.TextLight
-    Box.PlaceholderText = "Ketik disini..."
+    Box.PlaceholderText = "Type here..."
     Box.Text = defaultVal or ""
     Box.Font = Enum.Font.Gotham
     Box.TextSize = 12
@@ -704,14 +730,14 @@ end
 
 -- ==================== POPULATING TABS ====================
 local mainTab = CreateTab("Expedition", "▶️")
-countdownLabel = AddParagraph(mainTab, "Status Tracker", "⏹ Expedition belum dijalankan\nTekan toggle untuk mulai")
-AddToggle(mainTab, "Mulai Expedition", "Otomatis farming & teleport", isRunning, function(val)
+countdownLabel = AddParagraph(mainTab, "Status Tracker", "⏹ Expedition not started\nPress toggle to start")
+AddToggle(mainTab, "Start Expedition", "Auto farming & teleport", isRunning, function(val)
     if val then RunExpedition() else StopExpedition() end
 end)
-AddToggle(mainTab, "Auto Rejoin", "Otomatis masuk saat DC", autoRejoinEnabled, function(val)
+AddToggle(mainTab, "Auto Rejoin", "Auto rejoin when DC", autoRejoinEnabled, function(val)
     autoRejoinEnabled = val
     getgenv().AutoExpedition.autoRejoinEnabled = val
-    Rayfield:Notify({ Title = "Auto Rejoin", Content = val and "✅ Dinyalakan" or "❌ Dimatikan", Duration = 4 })
+    Rayfield:Notify({ Title = "Auto Rejoin", Content = val and "✅ Enabled" or "❌ Disabled", Duration = 4 })
 end)
 AddInput(mainTab, "Limit Loop", tostring(targetLoops), function(val)
     local num = tonumber(val)
@@ -723,24 +749,24 @@ AddInput(mainTab, "Limit Loop", tostring(targetLoops), function(val)
 end)
 
 local webTab = CreateTab("Webhook", "🔔")
-AddParagraph(webTab, "Notifikasi Discord", "Masukkan URL webhook untuk menerima report per 5 loop & disconnect.")
+AddParagraph(webTab, "Discord Notifications", "Insert webhook URL to receive reports per 5 loops & disconnect.")
 local WebhookInputBox = AddInput(webTab, "Webhook URL", webhookURL, function(val)
     if val and val ~= "" then
         webhookURL = val
         getgenv().AutoExpedition.webhookURL = val
-        Rayfield:Notify({ Title = "Disimpan", Content = "Webhook berhasil dipasang!", Duration = 4 })
+        Rayfield:Notify({ Title = "Saved", Content = "Webhook successfully connected!", Duration = 4 })
     end
 end)
 AddButton(webTab, "🧪 Test Bot Webhook", function()
-    if webhookURL == "" then return Rayfield:Notify({ Title = "Error", Content = "Isi Webhook URL dulu!", Duration = 4 }) end
-    SendWebhook("🧪 Test Webhook Berhasil", "✅ Webhook terhubung!\nPlayer: **" .. LocalPlayer.Name .. "**", 65280)
-    Rayfield:Notify({ Title = "Test Dikirim", Content = "Cek channel Discord kamu!", Duration = 5 })
+    if webhookURL == "" then return Rayfield:Notify({ Title = "Error", Content = "Please enter a webhook URL first!", Duration = 4 }) end
+    SendWebhook("🧪 Test Webhook Successful", "✅ Webhook connected!\nPlayer: **" .. LocalPlayer.Name .. "**", 65280)
+    Rayfield:Notify({ Title = "Test Sent", Content = "Check your Discord channel!", Duration = 5 })
 end)
-AddButton(webTab, "🗑️ Hapus Webhook", function()
+AddButton(webTab, "🗑️ Delete Webhook", function()
     webhookURL = ""
     getgenv().AutoExpedition.webhookURL = ""
     WebhookInputBox.Text = ""
-    Rayfield:Notify({ Title = "Dihapus", Content = "Webhook URL telah dihapus.", Duration = 4 })
+    Rayfield:Notify({ Title = "Deleted", Content = "Webhook URL deleted.", Duration = 4 })
 end)
 
 local campTab = CreateTab("Teleport", "🏕️")
@@ -761,17 +787,17 @@ for _, camp in ipairs(Camps) do
     end)
 end
 
-local statsTab = CreateTab("Statistik", "📊")
-local totalLbl = AddParagraph(statsTab, "Data Server Asli", "Memuat data dari server...")
+local statsTab = CreateTab("Statistic", "📊")
+local totalLbl = AddParagraph(statsTab, "Server Data", "Loading data from server...")
 task.spawn(function()
     while task.wait(2) do
         local currentStats = GetInGameExpeditions()
-        totalLbl:Set({ Content = "Total sukses: **" .. tostring(currentStats) .. "** Expeditions." })
+        totalLbl:Set({ Content = "Total success: **" .. tostring(currentStats) .. "** Expeditions." })
     end
 end)
 AddButton(statsTab, "🔄 Refresh Data", function()
     local currentStats = GetInGameExpeditions()
-    totalLbl:Set({ Content = "Total sukses: **" .. tostring(currentStats) .. "** Expeditions." })
+    totalLbl:Set({ Content = "Total success: **" .. tostring(currentStats) .. "** Expeditions." })
 end)
 
 -- Toggle UI Hotkey (Tombol K)
@@ -785,9 +811,9 @@ end)
 
 -- Auto Resume Support
 if getgenv().AutoExpedition.isRunning then
-    Rayfield:Notify({ Title = "🔄 Auto Rejoined!", Content = "Melanjutkan expedition...", Duration = 8 })
+    Rayfield:Notify({ Title = "🔄 Auto Rejoined!", Content = "Resuming expedition...", Duration = 8 })
     task.wait(2)
     RunExpedition()
 end
 
-Rayfield:Notify({ Title = "Loaded", Content = "Modern UI by Scaramouche siap digunakan!", Duration = 6 })
+Rayfield:Notify({ Title = "Loaded", Content = "Modern UI by Scaramouche ready to use!", Duration = 6 })
